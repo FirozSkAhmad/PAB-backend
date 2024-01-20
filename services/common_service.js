@@ -37,14 +37,42 @@ class CommonService {
         }
     }
 
-    async assembliesByParliament(parlimentName) {
+    async getAllAssemblies() {
         try {
-            const assembliesData = await pabs.findAll({
-                attributes: ['assembly'],
+            const uniqueAssembliesData = await pabs.findAll(
+                {
+                    attributes: [
+                        [Sequelize.fn('DISTINCT', Sequelize.col('assembly')), 'assembly'],
+                    ],
+                    where: {
+                        assembly: {
+                            [Sequelize.Op.ne]: null // Filter out null values if needed
+                        }
+                    }
+                }
+            )
+                .catch(err => {
+                    console.log("Error while reading the Assemblies details", err.message);
+                    throw new global.DATA.PLUGINS.httperrors.InternalServerError(Constants.SQL_ERROR);
+                })
+
+            const uniqueAssemblies = uniqueAssembliesData.map(a => a.assembly);
+
+            return uniqueAssemblies
+        }
+        catch (err) {
+            throw err;
+        }
+    }
+
+    async talukasByAssembly(assemblyName) {
+        try {
+            const talukasData = await pabs.findAll({
+                attributes: ['taluka'],
                 where: {
-                    parliment: parlimentName
+                    assembly: assemblyName
                 },
-                group: ['assembly'] // Group by 'assembly' to get unique values
+                group: ['taluka'] // Group by 'taluka' to get unique values
             })
                 .catch(err => {
                     console.log("Error while reading the assembly details", err.message);
@@ -52,28 +80,28 @@ class CommonService {
                 })
 
 
-            const assemblies = assembliesData.map(a => a.assembly);
+            const talukas = talukasData.map(t => t.taluka);
 
-            return assemblies
+            return talukas
         }
         catch (err) {
             throw err;
         }
     }
 
-    async getBooths(parlimentName, assemblyName) {
+    async getBooths(assemblyName, talukaName) {
         try {
             const boothsData = await pabs.findAll({
                 attributes: ['booth'],
                 where: {
-                    parliment: parlimentName,
-                    assembly: assemblyName
+                    assembly: assemblyName,
+                    taluka: talukaName
                 },
                 group: ['booth'],
                 order: [['id', 'ASC']]
             })
                 .catch(err => {
-                    console.log("Error while reading the booth-address details", err.message);
+                    console.log("Error while reading the booth details", err.message);
                     throw new global.DATA.PLUGINS.httperrors.InternalServerError(Constants.SQL_ERROR);
                 })
 
@@ -87,13 +115,13 @@ class CommonService {
     }
 
 
-    async getBoothAddress(parlimentName, assemblyName, boothName) {
+    async getBoothAddress(assemblyName, talukaName, boothName) {
         try {
             const boothsData = await pabs.findOne({
                 attributes: ['address'],
                 where: {
-                    parliment: parlimentName,
                     assembly: assemblyName,
+                    taluka: talukaName,
                     booth: boothName,
                 },
             })

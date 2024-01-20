@@ -23,16 +23,33 @@ router.get('/getAllParliments', jwtHelperObj.verifyAccessToken, async (req, res,
     }
 })
 
-router.get('/assembliesByParliament', jwtHelperObj.verifyAccessToken, async (req, res, next) => {
+router.get('/getAllAssemblies', jwtHelperObj.verifyAccessToken, async (req, res, next) => {
     try {
-        const parlimentName = req.query.parliment;
+        const adminServiceObj = new CommonService();
+        const data = await adminServiceObj.getAllAssemblies();
 
-        if (!parlimentName) {
-            return res.status(400).send('Parliament name is required');
+        res.send({
+            "status": 200,
+            "message": Constants.SUCCESS,
+            "data": data
+        })
+
+    }
+    catch (err) {
+        next(err);
+    }
+})
+
+router.get('/talukasByAssembly', jwtHelperObj.verifyAccessToken, async (req, res, next) => {
+    try {
+        const assemblyName = req.query.assembly;
+
+        if (!assemblyName) {
+            return res.status(400).send('Assembly name is required');
         }
 
         const adminServiceObj = new CommonService();
-        const data = await adminServiceObj.assembliesByParliament(parlimentName);
+        const data = await adminServiceObj.talukasByAssembly(assemblyName);
 
         res.send({
             "status": 200,
@@ -49,15 +66,15 @@ router.get('/assembliesByParliament', jwtHelperObj.verifyAccessToken, async (req
 router.get('/getBooths', jwtHelperObj.verifyAccessToken, async (req, res, next) => {
     try {
 
-        const parlimentName = req.query.parliment;
         const assemblyName = req.query.assembly;
+        const talukaName = req.query.taluka;
 
-        if (!parlimentName || !assemblyName) {
-            return res.status(400).send('Both parliament and assembly names are required');
+        if (!assemblyName || !talukaName) {
+            return res.status(400).send('Both assembly and taluka names are required');
         }
 
         const adminServiceObj = new CommonService();
-        const data = await adminServiceObj.getBooths(parlimentName, assemblyName);
+        const data = await adminServiceObj.getBooths(assemblyName, talukaName);
 
         res.send({
             "status": 200,
@@ -74,16 +91,16 @@ router.get('/getBooths', jwtHelperObj.verifyAccessToken, async (req, res, next) 
 router.get('/getBoothAddress', jwtHelperObj.verifyAccessToken, async (req, res, next) => {
     try {
 
-        const parlimentName = req.query.parliment;
         const assemblyName = req.query.assembly;
+        const talukaName = req.query.taluka;
         const boothName = req.query.booth;
 
-        if (!parlimentName || !assemblyName || !boothName) {
-            return res.status(400).send('parliament, assembly and booth names are required');
+        if (!assemblyName || !talukaName || !boothName) {
+            return res.status(400).send('assembly, taluka and booth names are required');
         }
 
         const adminServiceObj = new CommonService();
-        const data = await adminServiceObj.getBoothAddress(parlimentName, assemblyName, boothName);
+        const data = await adminServiceObj.getBoothAddress(assemblyName, talukaName, boothName);
 
         res.send({
             "status": 200,
