@@ -79,6 +79,32 @@ class AdminService {
         }
     }
 
+    async getAllSurveyorList() {
+        try {
+            const usersData = await users.findAll({
+                attributes: ['user_name'],
+                where: {
+                    id: {
+                        [Op.ne]: 1 // 'ne' stands for 'not equal'
+                    }
+                }
+            });
+
+            // Extract user names into an array
+            const surveyorNames = usersData.map(surveyor => surveyor.user_name);
+
+            return surveyorNames;
+        }catch (err) {
+            // If it's a known error, rethrow it for the router to handle
+            if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+                throw err;
+            }
+            // Log and throw a generic server error for unknown errors
+            console.error("Error in getAllSurveyorList: ", err.message);
+            throw new global.DATA.PLUGINS.httperrors.InternalServerError("An internal server error occurred");
+        }
+    }
+
     async validateUser(userDetails) {
         try {
 

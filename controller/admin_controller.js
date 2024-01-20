@@ -53,6 +53,34 @@ router.get('/getUsersList', jwtHelperObj.verifyAccessToken, async (req, res, nex
     }
 })
 
+router.get('/getAllSurveyorList', jwtHelperObj.verifyAccessToken, async (req, res, next) => {
+    try {
+        if (req.aud.split(":")[1] === "SUPER ADMIN") {
+            const adminServiceObj = new AdminService();
+            const data = await adminServiceObj.getAllSurveyorList();
+
+            res.send({
+                "status": 200,
+                "message": Constants.SUCCESS,
+                "data": data
+            })
+        }
+        else {
+            res.send({
+                "status": 401,
+                "message": "only Super Admin has access to get users the data",
+            })
+        }
+    } catch (err) {
+        // Check if the error is an instance of HTTP Errors
+        if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+            return res.status(err.statusCode).send({ "status": err.statusCode, "message": err.message });
+        }
+        // For other errors, use a generic server error response
+        return res.status(500).send({ "status": 500, "message": "Internal Server Error" });
+    }
+})
+
 router.post('/validateUser', jwtHelperObj.verifyAccessToken, async (req, res, next) => {
     try {
         if (req.aud.split(":")[1] === "SUPER ADMIN") {
