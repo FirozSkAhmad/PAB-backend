@@ -17,7 +17,8 @@ const UserStatusModel = global.DATA.CONNECTION.mysql.define("userstatus", {
     },
     emailId: {
         type: Sequelize.DataTypes.STRING(100),
-        allowNull: false
+        allowNull: false,
+        unique: true 
     },
     role_type: {
         type: Sequelize.DataTypes.STRING(100),
@@ -25,7 +26,8 @@ const UserStatusModel = global.DATA.CONNECTION.mysql.define("userstatus", {
     },
     phn_no: {
         type: Sequelize.DataTypes.STRING(100),
-        allowNull: false
+        allowNull: false,
+        unique: true 
     },
     address: {
         type: Sequelize.DataTypes.STRING(500),

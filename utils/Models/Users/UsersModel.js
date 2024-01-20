@@ -17,11 +17,13 @@ const UsersModel = global.DATA.CONNECTION.mysql.define("users", {
     },
     emailId: {
         type: Sequelize.DataTypes.STRING(100),
-        allowNull: false
+        allowNull: false,
+        unique: true 
     },
     phn_no: {
         type: Sequelize.DataTypes.STRING(100),
-        allowNull: false
+        allowNull: false,
+        unique: true 
     },
     address: {
         type: Sequelize.DataTypes.STRING(500),

@@ -52,12 +52,12 @@ class App {
     }
 
     async listen() {
-        this.app.listen(4200, (err) => {
+        this.app.listen(5200, (err) => {
             if (err) {
                 console.log("Error while running the express application", err);
             }
             else {
-                console.log("Express application running on port 4200");
+                console.log("Express application running on port 5200");
             }
         })
     }

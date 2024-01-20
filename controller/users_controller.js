@@ -15,9 +15,13 @@ router.post('/login', async (req, res, next) => {
             "message": Constants.SUCCESS,
             "data": data
         })
-    }
-    catch (err) {
-        next(err);
+    } catch (err) {
+        // Check if the error is an instance of HTTP Errors
+        if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+            return res.status(err.statusCode).send({ "status": err.statusCode, "message": err.message });
+        }
+        // For other errors, use a generic server error response
+        return res.status(500).send({ "status": 500, "message": "Internal Server Error" });
     }
 })
 
@@ -30,9 +34,13 @@ router.post('/register', multer().any(), async (req, res, next) => {
             "message": Constants.SUCCESS,
             "data": data
         })
-    }
-    catch (err) {
-        next(err);
+    } catch (err) {
+        // Check if the error is an instance of HTTP Errors
+        if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+            return res.status(err.statusCode).send({ "status": err.statusCode, "message": err.message });
+        }
+        // For other errors, use a generic server error response
+        return res.status(500).send({ "status": 500, "message": "Internal Server Error" });
     }
 })
 
@@ -52,9 +60,13 @@ router.post('/volunteerOnboard', jwtHelperObj.verifyAccessToken, multer().any(),
                 "message": "only SURVEYOR has access to Onboard volunteer",
             })
         }
-    }
-    catch (err) {
-        next(err);
+    } catch (err) {
+        // Check if the error is an instance of HTTP Errors
+        if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+            return res.status(err.statusCode).send({ "status": err.statusCode, "message": err.message });
+        }
+        // For other errors, use a generic server error response
+        return res.status(500).send({ "status": 500, "message": "Internal Server Error" });
     }
 })
 
@@ -79,9 +91,13 @@ router.get('/getVolunteersDataBySurveyorId', jwtHelperObj.verifyAccessToken, asy
             })
         }
 
-    }
-    catch (err) {
-        next(err);
+    } catch (err) {
+        // Check if the error is an instance of HTTP Errors
+        if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+            return res.status(err.statusCode).send({ "status": err.statusCode, "message": err.message });
+        }
+        // For other errors, use a generic server error response
+        return res.status(500).send({ "status": 500, "message": "Internal Server Error" });
     }
 })
 
@@ -102,25 +118,40 @@ router.put('/volunteerUpdate/:id', jwtHelperObj.verifyAccessToken, multer().any(
                 "message": "only SURVEYOR has access to Edit volunteer",
             })
         }
-    }
-    catch (err) {
-        next(err);
+    } catch (err) {
+        // Check if the error is an instance of HTTP Errors
+        if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+            return res.status(err.statusCode).send({ "status": err.statusCode, "message": err.message });
+        }
+        // For other errors, use a generic server error response
+        return res.status(500).send({ "status": 500, "message": "Internal Server Error" });
     }
 })
 
-router.delete('/deleteVolunteer/:id', multer().any(), async (req, res, next) => {
+router.delete('/deleteVolunteer/:id', jwtHelperObj.verifyAccessToken, multer().any(), async (req, res, next) => {
     try {
-        const volunteerId = req.params.id;
-        const userSeviceObj = new UserService();
-        const data = await userSeviceObj.deleteVolunteer(volunteerId);
-        res.send({
-            "status": 201,
-            "message": Constants.SUCCESS,
-            "data": data
-        })
-    }
-    catch (err) {
-        next(err);
+        if (req.aud.split(":")[1] === "SURVEYOR") {
+            const volunteerId = req.params.id;
+            const userSeviceObj = new UserService();
+            const data = await userSeviceObj.deleteVolunteer(volunteerId);
+            res.send({
+                "status": 201,
+                "message": Constants.SUCCESS,
+                "data": data
+            })
+        } else {
+            res.send({
+                "status": 401,
+                "message": "only SURVEYOR has access to Edit volunteer",
+            })
+        }
+    } catch (err) {
+        // Check if the error is an instance of HTTP Errors
+        if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+            return res.status(err.statusCode).send({ "status": err.statusCode, "message": err.message });
+        }
+        // For other errors, use a generic server error response
+        return res.status(500).send({ "status": 500, "message": "Internal Server Error" });
     }
 })
 

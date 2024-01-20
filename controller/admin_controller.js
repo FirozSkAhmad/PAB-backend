@@ -8,17 +8,22 @@ const router = express.Router()
 
 router.post('/createSuperAdmin', multer().any(), async (req, res, next) => {
     try {
-        const adminServiceObj = new AdminService()
-        await adminServiceObj.createSuperAdmin(req.body, req.files)
+        const adminServiceObj = new AdminService();
+        await adminServiceObj.createSuperAdmin(req.body, req.files);
         res.send({
             "status": 200,
             "message": Constants.SUCCESS,
-        })
+        });
+    } catch (err) {
+        // Check if the error is an instance of HTTP Errors
+        if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+            return res.status(err.statusCode).send({ "status": err.statusCode, "message": err.message });
+        }
+        // For other errors, use a generic server error response
+        return res.status(500).send({ "status": 500, "message": "Internal Server Error" });
     }
-    catch (err) {
-        next(err);
-    }
-})
+});
+
 
 router.get('/getUsersList', jwtHelperObj.verifyAccessToken, async (req, res, next) => {
     try {
@@ -38,9 +43,13 @@ router.get('/getUsersList', jwtHelperObj.verifyAccessToken, async (req, res, nex
                 "message": "only Super Admin has access to get users the data",
             })
         }
-    }
-    catch (err) {
-        next(err);
+    } catch (err) {
+        // Check if the error is an instance of HTTP Errors
+        if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+            return res.status(err.statusCode).send({ "status": err.statusCode, "message": err.message });
+        }
+        // For other errors, use a generic server error response
+        return res.status(500).send({ "status": 500, "message": "Internal Server Error" });
     }
 })
 
@@ -48,10 +57,10 @@ router.post('/validateUser', jwtHelperObj.verifyAccessToken, async (req, res, ne
     try {
         if (req.aud.split(":")[1] === "SUPER ADMIN") {
             const adminServiceObj = new AdminService()
-            await adminServiceObj.validateUser(req.body)
+            const message = await adminServiceObj.validateUser(req.body)
             res.send({
                 "status": 200,
-                "message": Constants.SUCCESS,
+                "message": message,
 
             })
         } else {
@@ -60,9 +69,13 @@ router.post('/validateUser', jwtHelperObj.verifyAccessToken, async (req, res, ne
                 "message": "only Super Admin has access to validate users",
             })
         }
-    }
-    catch (err) {
-        next(err);
+    } catch (err) {
+        // Check if the error is an instance of HTTP Errors
+        if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+            return res.status(err.statusCode).send({ "status": err.statusCode, "message": err.message });
+        }
+        // For other errors, use a generic server error response
+        return res.status(500).send({ "status": 500, "message": "Internal Server Error" });
     }
 })
 
@@ -84,9 +97,13 @@ router.get('/getOverview', jwtHelperObj.verifyAccessToken, async (req, res, next
             })
         }
 
-    }
-    catch (err) {
-        next(err);
+    } catch (err) {
+        // Check if the error is an instance of HTTP Errors
+        if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+            return res.status(err.statusCode).send({ "status": err.statusCode, "message": err.message });
+        }
+        // For other errors, use a generic server error response
+        return res.status(500).send({ "status": 500, "message": "Internal Server Error" });
     }
 })
 
@@ -108,9 +125,13 @@ router.get('/getVolunteersData', jwtHelperObj.verifyAccessToken, async (req, res
             })
         }
 
-    }
-    catch (err) {
-        next(err);
+    } catch (err) {
+        // Check if the error is an instance of HTTP Errors
+        if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+            return res.status(err.statusCode).send({ "status": err.statusCode, "message": err.message });
+        }
+        // For other errors, use a generic server error response
+        return res.status(500).send({ "status": 500, "message": "Internal Server Error" });
     }
 })
 

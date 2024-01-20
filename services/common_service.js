@@ -1,6 +1,7 @@
 const Constants = require('../utils/Constants/response_messages')
 const JWTHelper = require('../utils/Helpers/jwt_helper')
 const Sequelize = require('sequelize');
+const pabs = require("../utils/Models/PAB/PABModel")
 
 
 class CommonService {
@@ -10,7 +11,7 @@ class CommonService {
 
     async getAllParliments() {
         try {
-            const uniqueParliamentsData = await global.DATA.MODELS.pabs.findAll(
+            const uniqueParliamentsData = await pabs.findAll(
                 {
                     attributes: [
                         [Sequelize.fn('DISTINCT', Sequelize.col('parliment')), 'parliment'],
@@ -38,7 +39,7 @@ class CommonService {
 
     async assembliesByParliament(parlimentName) {
         try {
-            const assembliesData = await global.DATA.MODELS.pabs.findAll({
+            const assembliesData = await pabs.findAll({
                 attributes: ['assembly'],
                 where: {
                     parliment: parlimentName
@@ -62,7 +63,7 @@ class CommonService {
 
     async getBooths(parlimentName, assemblyName) {
         try {
-            const boothsData = await global.DATA.MODELS.pabs.findAll({
+            const boothsData = await pabs.findAll({
                 attributes: ['booth'],
                 where: {
                     parliment: parlimentName,
@@ -88,7 +89,7 @@ class CommonService {
 
     async getBoothAddress(parlimentName, assemblyName, boothName) {
         try {
-            const boothsData = await global.DATA.MODELS.pabs.findOne({
+            const boothsData = await pabs.findOne({
                 attributes: ['address'],
                 where: {
                     parliment: parlimentName,

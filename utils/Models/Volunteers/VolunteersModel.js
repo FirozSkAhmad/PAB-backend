@@ -13,9 +13,14 @@ const VolunteersModel = global.DATA.CONNECTION.mysql.define("volunteers", {
     },
     parliment: {
         type: Sequelize.STRING(200),
-        allowNull: false
+        allowNull: false,
+        defaultValue: "Lok Sabha"
     },
     assembly: {
+        type: Sequelize.DataTypes.STRING(100),
+        allowNull: false
+    },
+    taluka: {
         type: Sequelize.DataTypes.STRING(100),
         allowNull: false
     },
@@ -37,11 +42,13 @@ const VolunteersModel = global.DATA.CONNECTION.mysql.define("volunteers", {
     },
     phn_no: {
         type: Sequelize.DataTypes.STRING(100),
-        allowNull: false
+        allowNull: false,
+        unique: true
     },
     emailId: {
         type: Sequelize.DataTypes.STRING(100),
-        allowNull: false
+        allowNull: false,
+        unique: true
     },
     gender: {
         type: Sequelize.DataTypes.STRING(100),

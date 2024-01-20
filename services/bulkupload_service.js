@@ -1,6 +1,7 @@
 const fs = require('fs');
 const csv = require('csv-parser');
 const stream = require('stream');
+const pabs=require('../utils/Models/PAB/PABModel')
 
 class BulkUpload {
     constructor() {
@@ -43,9 +44,9 @@ class BulkUpload {
                     const item = data[i];
 
                     // Create PAB
-                    await global.DATA.MODELS.pabs.create({
-                        parliment: item['Parliment Constituency'],
+                    await pabs.create({
                         assembly: item['Assembly Constituency'],
+                        taluka: item['Taluka'],
                         booth: item['Polling booths'],
                         address: item['Address']
                     }, { transaction: t });
