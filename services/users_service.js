@@ -107,13 +107,10 @@ class UserService {
                 throw new global.DATA.PLUGINS.httperrors.BadRequest("PASSWORDS DOES NOT MATCH")
             }
 
-            const randomkey = await global.DATA.PLUGINS.bcrypt.genSalt(10);
-            const hashedPassword = await global.DATA.PLUGINS.bcrypt.hash(password, randomkey)
-
             const userPayload = {
                 emailId: userdetails.emailId,
                 role_type: userdetails.role_type,
-                password: hashedPassword,
+                password: userdetails.password,
                 user_name: userdetails.user_name,
                 phn_no: userdetails.phn_no,
                 address: userdetails.address,

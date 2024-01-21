@@ -6,6 +6,7 @@ const userstatus = require("../utils/Models/UserStatus/UserStatusModel")
 const pabs = require("../utils/Models/PAB/PABModel")
 const volunteers = require("../utils/Models/Volunteers/VolunteersModel")
 const rejectedusers = require("../utils/Models/RejectedUsers/RejectedUsersModel")
+const nodemailer = require('nodemailer');
 
 class AdminService {
     constructor() {
@@ -37,6 +38,7 @@ class AdminService {
             }
 
             let uploadedFileURL = await uploadFile(files[0], "AdminImg");
+
             const password = userdetails.password;
             const randomkey = await global.DATA.PLUGINS.bcrypt.genSalt(10);
             const hashedPassword = await global.DATA.PLUGINS.bcrypt.hash(password, randomkey);
@@ -67,17 +69,25 @@ class AdminService {
 
     async getUsersList() {
         try {
-            const data = await userstatus.findAll()
-                .catch(err => {
-                    console.log("Error while reading the userstatus details", err);
-                    throw new global.DATA.PLUGINS.httperrors.InternalServerError(Constants.SQL_ERROR);
-                })
-            return data;
-        }
-        catch (err) {
+            const users = await userstatus.findAll({
+                order: [['updatedAt', 'DESC']] // Correctly placed inside the findAll options
+            }).catch(err => {
+                console.log("Error while reading the userstatus details", err);
+                throw new global.DATA.PLUGINS.httperrors.InternalServerError(Constants.SQL_ERROR);
+            });
+
+            // Map over the array to exclude the password property for each user
+            const usersData = users.map(user => {
+                const { password, ...userWithoutPassword } = user.get({ plain: true });
+                return userWithoutPassword;
+            });
+
+            return usersData;
+        } catch (err) {
             throw err;
         }
     }
+
 
     async getAllSurveyorList() {
         try {
@@ -94,7 +104,7 @@ class AdminService {
             const surveyorNames = usersData.map(surveyor => surveyor.user_name);
 
             return surveyorNames;
-        }catch (err) {
+        } catch (err) {
             // If it's a known error, rethrow it for the router to handle
             if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
                 throw err;
@@ -104,6 +114,8 @@ class AdminService {
             throw new global.DATA.PLUGINS.httperrors.InternalServerError("An internal server error occurred");
         }
     }
+
+
 
     async validateUser(userDetails) {
         try {
@@ -150,10 +162,34 @@ class AdminService {
                         },
                         transaction: t
                     }).catch(err => {
+                        console.log("Error in deteling surveyor in userstatus table: ", err.message)
                         throw new global.DATA.PLUGINS.httperrors.InternalServerError(Constants.SQL_ERROR)
                     })
 
+                    const transporter = nodemailer.createTransport({
+                        service: 'gmail',
+                        auth: {
+                            user: process.env.SENDER_EMAIL_ID,
+                            pass: process.env.SENDER_PASSWORD
+                        }
+                    });
+
+                    const mailOptions = {
+                        from: process.env.SENDER_EMAIL_ID,
+                        to: userDetails.emailId,
+                        subject: "Notification of Approval or Rejection",
+                        text: 'SURVEYOR REJECTED',
+                    };
+
+                    transporter.sendMail(mailOptions, function (err, info) {
+                        if (err) {
+                            console.error('Error sending email', err);
+                        } else {
+                            console.log(`Email sent: ${info.response}`);
+                        }
+                    });
                 })
+
                 return "REJECTED"
             }
 
@@ -176,10 +212,14 @@ class AdminService {
                         throw new global.DATA.PLUGINS.httperrors.BadRequest("NO USER EXISTS WITH GIVEN EMAIL ID");
                     }
 
+                    const password = data.password;
+                    const randomkey = await global.DATA.PLUGINS.bcrypt.genSalt(10);
+                    const hashedPassword = await global.DATA.PLUGINS.bcrypt.hash(password, randomkey);
+
                     // Add to the users table
                     await users.create({
                         emailId: data.emailId,
-                        password: data.password,
+                        password: hashedPassword,
                         user_name: data.user_name,
                         role_type: data.role_type,
                         phn_no: data.phn_no,
@@ -202,7 +242,30 @@ class AdminService {
                         throw new global.DATA.PLUGINS.httperrors.InternalServerError(Constants.SQL_ERROR)
                     })
 
+                    const transporter = nodemailer.createTransport({
+                        service: 'gmail',
+                        auth: {
+                            user: process.env.SENDER_EMAIL_ID,
+                            pass: process.env.SENDER_PASSWORD
+                        }
+                    });
+
+                    const mailOptions = {
+                        from: process.env.SENDER_EMAIL_ID,
+                        to: userDetails.emailId,
+                        subject: "Notification of Approval or Rejection",
+                        text: `SURVEYOR APPROVED, CREDENTIALS:- phn_no:${data.phn_no}, password:${data.password} `,
+                    };
+
+                    transporter.sendMail(mailOptions, function (err, info) {
+                        if (err) {
+                            console.error('Error sending email', err);
+                        } else {
+                            console.log(`Email sent: ${info.response}`);
+                        }
+                    });
                 })
+
                 return "APPROVED"
             }
 
