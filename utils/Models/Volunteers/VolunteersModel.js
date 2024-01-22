@@ -66,10 +66,6 @@ const VolunteersModel = global.DATA.CONNECTION.mysql.define("volunteers", {
         type: Sequelize.DataTypes.STRING(100),
         allowNull: false
     },
-    house_no: {
-        type: Sequelize.DataTypes.STRING(100),
-        allowNull: false
-    },
     volunteer_address: {
         type: Sequelize.DataTypes.STRING(500),
         allowNull: false

@@ -76,13 +76,18 @@ class AdminService {
                 throw new global.DATA.PLUGINS.httperrors.InternalServerError(Constants.SQL_ERROR);
             });
 
-            // Map over the array to exclude the password property for each user
+            // Map over the array to exclude the password property and rename user_name to surveyor_name
             const usersData = users.map(user => {
-                const { password, ...userWithoutPassword } = user.get({ plain: true });
-                return userWithoutPassword;
+                const { password, user_name, ...userWithoutPassword } = user.get({ plain: true });
+
+                return {
+                    ...userWithoutPassword,
+                    surveyor_name: user_name // Rename user_name to surveyor_name
+                };
             });
 
             return usersData;
+
         } catch (err) {
             throw err;
         }
@@ -330,6 +335,24 @@ class AdminService {
 
     async getVolunteersData() {
         try {
+
+            // Helper function to determine booth status
+            async function getBoothStatus(parliment, assembly, taluka) {
+                const pabData = await pabs.findOne({
+                    where: { parliment, assembly, taluka },
+                    attributes: ['no_volunteers']
+                });
+
+                if (pabData) {
+                    const noVolunteers = pabData.no_volunteers;
+                    if (noVolunteers === 0) return 'RED';
+                    if (noVolunteers >= 1 && noVolunteers <= 7) return 'YELLOW';
+                    return 'GREEN';
+                }
+
+                return 'UNKNOWN'; // Default status if no data is found
+            }
+
             const volunteersData = await volunteers.findAll({
                 include: [{
                     model: users,
@@ -339,7 +362,7 @@ class AdminService {
             });
 
             // Process the results to format as per requirements
-            const formattedVolunteers = volunteersData.map(volunteer => {
+            const formattedVolunteers = await Promise.all(volunteersData.map(async volunteer => {
                 const volunteerData = volunteer.get({ plain: true });
 
                 // Extract user data and rename keys
@@ -349,10 +372,13 @@ class AdminService {
                     surveyor_phn_no: volunteerData.user.phn_no
                 } : {};
 
-                // Remove the user object and add the renamed keys to the main object
+                // Get booth status
+                const boothStatus = await getBoothStatus(volunteerData.parliment, volunteerData.assembly, volunteerData.taluka);
+
+                // Remove the user object and add the renamed keys and booth status to the main object
                 delete volunteerData.user;
-                return { ...volunteerData, ...userData };
-            });
+                return { ...volunteerData, ...userData, booth_status: boothStatus };
+            }));
 
             return formattedVolunteers;
         } catch (err) {

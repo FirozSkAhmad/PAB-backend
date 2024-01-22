@@ -138,6 +138,169 @@ class UserService {
         }
     }
 
+    async getATS() {
+        try {
+            const assemblies = await pabs.findAll({
+                attributes: ['assembly', 'taluka'],
+                group: ['assembly', 'taluka'],
+                order: [['assembly', 'ASC'], ['taluka', 'ASC']]
+            });
+
+            // Helper function to get status for each taluka
+            async function getStatusForTaluka(assembly, taluka) {
+                const booths = await pabs.findAll({
+                    where: { assembly, taluka },
+                    attributes: ['booth', 'no_volunteers']
+                });
+
+                // Determine status based on no_volunteers for all booths
+                let allGreen = true;
+                let allRed = true;
+
+                for (const booth of booths) {
+                    if (booth.no_volunteers > 7) {
+                        allRed = false;
+                    } else if (booth.no_volunteers > 0) {
+                        allGreen = false;
+                        allRed = false;
+                    } else {
+                        allGreen = false;
+                    }
+                }
+
+                if (allGreen) return 'GREEN';
+                if (allRed) return 'RED';
+                return 'YELLOW';
+            }
+
+            // Formatting the result
+            const formattedResult = await Promise.all(assemblies.map(async item => {
+                const status = await getStatusForTaluka(item.assembly, item.taluka);
+                return {
+                    [item.assembly]: {
+                        taluka: item.taluka,
+                        status: status
+                    }
+                };
+            }));
+
+            // Merging results for the same assembly
+            const mergedResults = formattedResult.reduce((acc, item) => {
+                const assembly = Object.keys(item)[0];
+                if (!acc[assembly]) {
+                    acc[assembly] = [];
+                }
+                acc[assembly].push(item[assembly]);
+                return acc;
+            }, {});
+
+            return mergedResults
+
+        } catch (err) {
+            // Check if the error is an instance of HTTP Errors
+            if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+                // Rethrow the original HTTP error
+                throw err;
+            }
+
+            // Log and throw an internal server error for other types of errors
+            console.error("Error during getATS process: ", err.message);
+            throw new global.DATA.PLUGINS.httperrors.InternalServerError("An internal server error occurred: ", err.message);
+        }
+    }
+
+    async getBoothsByAT(assemblyName, talukaName) {
+        try {
+
+            // Query to get booths and no_volunteers based on the provided assembly and taluka
+            const booths = await pabs.findAll({
+                where: {
+                    assembly: assemblyName,
+                    taluka: talukaName
+                },
+                attributes: ['booth', 'no_volunteers'],
+                order: [['booth', 'ASC']]
+            });
+
+            // Helper function to determine the status based on no_volunteers
+            function determineStatus(noVolunteers) {
+                if (noVolunteers === 0) return 'RED';
+                if (noVolunteers >= 1 && noVolunteers <= 7) return 'YELLOW';
+                return 'GREEN';
+            }
+
+            // Formatting the result
+            const boothList = booths.map(item => ({
+                boothName: item.booth,
+                status: determineStatus(item.no_volunteers)
+            }));
+
+            return { assemblyName, talukaName, booths: boothList }
+
+        } catch (err) {
+            // Check if the error is an instance of HTTP Errors
+            if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+                // Rethrow the original HTTP error
+                console.log(err.message)
+                throw err;
+            }
+
+            // Log and throw an internal server error for other types of errors
+            console.error("Error during getBoothsByAT process: ", err.message);
+            throw new global.DATA.PLUGINS.httperrors.InternalServerError("An internal server error occurred: ", err.message);
+        }
+    }
+
+    async getBoothDetailsByATB(assembly, taluka, booth) {
+        try {
+
+            // Query to get details based on the provided assembly, taluka, and booth
+            const detail = await pabs.findOne({
+                where: {
+                    assembly: assembly,
+                    taluka: taluka,
+                    booth: booth
+                },
+                attributes: [
+                    ['id', 'booth_id'],
+                    'address',
+                    ['president', 'PRESIDENT'],
+                    ['agent_1', 'BLA1'],
+                    ['agent_2', 'BLA2'],
+                    ['no_volunteers', 'total_volunteers']
+                ]
+            });
+
+            const details = detail.get({ plain: true });
+
+            // Calculating volunteers_count
+            let volunteers_count = details.total_volunteers;
+            console.log(volunteers_count)
+            if (details.PRESIDENT !== 'NOT FILLED') volunteers_count--;
+            if (details.BLA1 !== 'NOT FILLED') volunteers_count--;
+            if (details.BLA2 !== 'NOT FILLED') volunteers_count--;
+
+            // Adding volunteers_count to the response
+            return {
+                assembly, taluka, booth,
+                ...details, // Spread operator to include all other details
+                volunteers_count
+            }
+
+        } catch (err) {
+            // Check if the error is an instance of HTTP Errors
+            if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+                // Rethrow the original HTTP error
+                console.log(err.message)
+                throw err;
+            }
+
+            // Log and throw an internal server error for other types of errors
+            console.error("Error during getBoothDetailsByATB process: ", err.message);
+            throw new global.DATA.PLUGINS.httperrors.InternalServerError("An internal server error occurred: ", err.message);
+        }
+    }
+
     async volunteerOnboard(userdetails, files) {
         return await global.DATA.CONNECTION.mysql.transaction(async (t) => {
             try {
@@ -166,18 +329,26 @@ class UserService {
                     throw new global.DATA.PLUGINS.httperrors.BadRequest("NO BOOTH EXISTS WITH THE GIVEN ASSEMBLY, TALUKA, BOOTH COMBINATION AND BOOTH ADDRESS");
                 }
 
-                if (!["PRESIDENT", "AGENT_1", "AGENT_2", "VOLUNTEER"].includes(userdetails.designation)) {
-                    throw new global.DATA.PLUGINS.httperrors.BadRequest("Invalid designation. Must be one of PRESIDENT, AGENT_1, AGENT_2, or VOLUNTEER.");
+                if (!["PRESIDENT", "BLA1", "BLA2", "VOLUNTEER"].includes(userdetails.designation)) {
+                    throw new global.DATA.PLUGINS.httperrors.BadRequest("Invalid designation. Must be one of PRESIDENT, BLA1, BLA2, or VOLUNTEER.");
                 }
 
-                const volunteer = await volunteers.findOne({
-                    where: {
-                        [Op.or]: [
-                            { emailId: userdetails.emailId },
-                            { phn_no: userdetails.phn_no }
-                        ]
-                    }
-                });
+                const whereClause = {
+                    [Op.or]: []
+                };
+
+                // Add phone number condition
+                if (userdetails.phn_no) {
+                    whereClause[Op.or].push({ phn_no: userdetails.phn_no });
+                }
+
+                // Add email condition only if emailId is not undefined or empty
+                if (userdetails.emailId && userdetails.emailId !== 'empty') {
+                    whereClause[Op.or].push({ emailId: userdetails.emailId });
+                }
+
+                const volunteer = await volunteers.findOne({ where: whereClause });
+
 
                 if (volunteer) {
                     throw new global.DATA.PLUGINS.httperrors.BadRequest("VOLUNTEER ALREADY EXISTS WITH GIVEN EMAIL ID OR PHONE NUMBER");
@@ -195,8 +366,8 @@ class UserService {
 
                 const designationChecks = {
                     "PRESIDENT": "president",
-                    "AGENT_1": "agent_1",
-                    "AGENT_2": "agent_2"
+                    "BLA1": "agent_1",
+                    "BLA2": "agent_2"
                 };
 
                 const designation = userdetails.designation;
@@ -226,12 +397,11 @@ class UserService {
                     booth_id: pab.id,
                     volunteer_name: userdetails.volunteer_name,
                     phn_no: userdetails.phn_no,
-                    emailId: userdetails.emailId,
+                    emailId: userdetails.emailId ? userdetails.emailId : "empty",
                     gender: userdetails.gender,
                     age: userdetails.age,
                     caste: userdetails.caste,
-                    occupation: userdetails.occupation,
-                    house_no: userdetails.house_no,
+                    occupation: userdetails.occupation ? userdetails.occupation : "empty",
                     designation: userdetails.designation,
                     volunteer_address: userdetails.volunteer_address,
                     file_name: files[0].originalname,
@@ -296,8 +466,8 @@ class UserService {
         return await global.DATA.CONNECTION.mysql.transaction(async (t) => {
             try {
 
-                if (!["PRESIDENT", "AGENT_1", "AGENT_2", "VOLUNTEER"].includes(userdetails.designation)) {
-                    throw new global.DATA.PLUGINS.httperrors.BadRequest("Invalid designation. Must be one of PRESIDENT, AGENT_1, AGENT_2, or VOLUNTEER.");
+                if (!["PRESIDENT", "BLA1", "BLA2", "VOLUNTEER"].includes(userdetails.designation)) {
+                    throw new global.DATA.PLUGINS.httperrors.BadRequest("Invalid designation. Must be one of PRESIDENT, BLA1, BLA2, or VOLUNTEER.");
                 }
 
                 const volunteer = await volunteers.findOne({
@@ -311,21 +481,27 @@ class UserService {
                     throw new global.DATA.PLUGINS.httperrors.BadRequest("NO VOLUNTEER EXISTS WITH GIVEN id");
                 }
 
-                const volunteerData = await volunteers.findOne({
-                    where: {
-                        [Op.and]: [
-                            {
-                                [Op.or]: [
-                                    { emailId: userdetails.emailId },
-                                    { phn_no: userdetails.phn_no }
-                                ]
-                            },
-                            {
-                                id: { [Op.not]: volunteerId }
-                            }
-                        ]
-                    }
-                });
+                const orConditions = [
+                    { phn_no: userdetails.phn_no }
+                ];
+
+                // Add email condition only if emailId is not undefined or empty
+                if (userdetails.emailId && userdetails.emailId !== 'empty') {
+                    orConditions.push({ emailId: userdetails.emailId });
+                }
+
+                const whereClause = {
+                    [Op.and]: [
+                        {
+                            [Op.or]: orConditions
+                        },
+                        {
+                            id: { [Op.not]: volunteerId }
+                        }
+                    ]
+                };
+
+                const volunteerData = await volunteers.findOne({ where: whereClause });
 
                 if (volunteerData) {
                     throw new global.DATA.PLUGINS.httperrors.BadRequest("VOLUNTEER ALREADY EXISTS WITH GIVEN EMAIL ID OR PHONE NUMBER");
@@ -344,8 +520,8 @@ class UserService {
 
                     const designationChecks = {
                         "PRESIDENT": "president",
-                        "AGENT_1": "agent_1",
-                        "AGENT_2": "agent_2"
+                        "BLA1": "agent_1",
+                        "BLA2": "agent_2"
                     };
 
                     if (volunteer.designation in designationChecks) {
@@ -409,8 +585,8 @@ class UserService {
 
                     const designationChecks = {
                         "PRESIDENT": "president",
-                        "AGENT_1": "agent_1",
-                        "AGENT_2": "agent_2"
+                        "BLA1": "agent_1",
+                        "BLA2": "agent_2"
                     };
 
                     const designation = userdetails.designation;
@@ -463,12 +639,11 @@ class UserService {
                     booth_id: updatedBoothId,
                     volunteer_name: userdetails.volunteer_name,
                     phn_no: userdetails.phn_no,
-                    emailId: userdetails.emailId,
+                    emailId: userdetails.emailId ? userdetails.emailId : "empty",
                     gender: userdetails.gender,
                     age: userdetails.age,
                     caste: userdetails.caste,
-                    occupation: userdetails.occupation,
-                    house_no: userdetails.house_no,
+                    occupation: userdetails.occupation ? userdetails.occupation : "empty",
                     designation: userdetails.designation,
                     volunteer_address: userdetails.volunteer_address,
                     file_name: updatedFileName,
