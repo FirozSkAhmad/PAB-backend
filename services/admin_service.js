@@ -136,7 +136,7 @@ class AdminService {
                         },
                         transaction: t
                     }).catch(err => {
-                        console.log(err);
+                        console.log(err.message);
                         throw new global.DATA.PLUGINS.httperrors.InternalServerError(Constants.SQL_ERROR)
                     })
 
@@ -156,7 +156,7 @@ class AdminService {
                     }, {
                         transaction: t
                     }).catch(err => {
-                        console.log(err);
+                        console.log(err.message);
                         throw new global.DATA.PLUGINS.httperrors.InternalServerError(Constants.SQL_ERROR)
                     })
 
@@ -209,7 +209,7 @@ class AdminService {
                         },
                         transaction: t
                     }).catch(err => {
-                        console.log(err);
+                        console.log(err.message);
                         throw new global.DATA.PLUGINS.httperrors.InternalServerError(Constants.SQL_ERROR)
                     })
 
@@ -233,7 +233,7 @@ class AdminService {
                     }, {
                         transaction: t
                     }).catch(err => {
-                        console.log(err);
+                        console.log(err.message);
                         throw new global.DATA.PLUGINS.httperrors.InternalServerError(Constants.SQL_ERROR)
                     })
 
@@ -389,6 +389,138 @@ class AdminService {
             // Log and throw a generic server error for unknown errors
             console.error("Error while fetching volunteers data: ", err.message);
             throw new global.DATA.PLUGINS.httperrors.InternalServerError("An internal server error occurred");
+        }
+    }
+
+    async getVolunteersByBoothId(boothId) {
+        try {
+
+            // // Helper function to get volunteer details
+            async function getVolunteerDetails(boothId, designation, assembly, taluka, booth, noVolunteers) {
+                const volunteerData = await volunteers.findOne({
+                    where: {
+                        booth_id: boothId,
+                        designation: designation
+                    },
+                    include: [{
+                        model: users, // Ensure 'users' is correctly associated with 'volunteers'
+                        attributes: ['user_name'] // Fetch only 'user_name' from 'users'
+                    }],
+                    attributes: ['volunteer_name', 'phn_no', 'photo_url'] // Specific fields from 'volunteers'
+                });
+
+                if (!volunteerData) {
+                    return 'NOT FILLED';
+                }
+
+                // Process the results to format as per requirements
+                const volunteer = volunteerData.get({ plain: true });
+
+                // Extract user data and rename keys
+                const userData = volunteer.user ? {
+                    surveyor_name: volunteer.user.user_name
+                } : {};
+
+                // Remove the user object and add the renamed keys and pabRow data to the main object
+                delete volunteer.user;
+
+                const output = {
+                    ...volunteer,
+                    ...userData,
+                    assembly,
+                    taluka,
+                    booth
+                };
+
+                if (noVolunteers === 0) {
+                    output.booth_status = 'RED';
+                } else if (noVolunteers >= 1 && noVolunteers <= 7) {
+                    output.booth_status = 'YELLOW';
+                } else {
+                    output.booth_status = 'GREEN';
+                }
+
+                return output;
+            }
+
+            // Helper function to fetch volunteers
+            async function fetchVolunteers(boothId, assembly, taluka, booth,noVolunteers) {
+                const volunteerList = await volunteers.findAll({
+                    where: {
+                        booth_id: boothId,
+                        designation: 'VOLUNTEER'
+                    },
+                    include: [{
+                        model: users,
+                        attributes: ['user_name']
+                    }],
+                    attributes: ['volunteer_name', 'phn_no', 'photo_url']
+                });
+
+                return volunteerList.map(volunteerData => {
+                    const volunteer = volunteerData.get({ plain: true });
+                    const userData = volunteer.user ? {
+                        surveyor_name: volunteer.user.user_name
+                    } : {};
+
+                    delete volunteer.user;
+
+                    const output = {
+                        ...volunteer,
+                        ...userData,
+                        assembly,
+                        taluka,
+                        booth
+                    };
+
+                    if (noVolunteers === 0) {
+                        output.booth_status = 'RED';
+                    } else if (noVolunteers >= 1 && noVolunteers <= 7) {
+                        output.booth_status = 'YELLOW';
+                    } else {
+                        output.booth_status = 'GREEN';
+                    }
+
+                    return output;
+
+                });
+            }
+
+            const pabRow = await pabs.findByPk(boothId);
+
+            if (!pabRow) {
+                return res.status(404).send('Booth not found');
+            }
+
+            // Calculating volunteers_count
+            let volunteers_count = pabRow.total_volunteers;
+            if (pabRow.president !== 'NOT FILLED') volunteers_count--;
+            if (pabRow.agent_1 !== 'NOT FILLED') volunteers_count--;
+            if (pabRow.agent_2 !== 'NOT FILLED') volunteers_count--;
+
+            const output = {
+                PRESIDENT: await getVolunteerDetails(boothId, 'PRESIDENT', pabRow.assembly, pabRow.taluka, pabRow.booth, pabRow.no_volunteers),
+                BLA1: await getVolunteerDetails(boothId, 'BLA1', pabRow.assembly, pabRow.taluka, pabRow.booth, pabRow.no_volunteers),
+                BLA2: await getVolunteerDetails(boothId, 'BLA2', pabRow.assembly, pabRow.taluka, pabRow.booth, pabRow.no_volunteers)
+            };
+
+            // Add volunteers if volunteers_count is more than 0
+            if (pabRow.no_volunteers > 0) {
+                output.volunteers = await fetchVolunteers(boothId, pabRow.assembly, pabRow.taluka, pabRow.booth, pabRow.no_volunteers);
+            }
+
+            return output;
+
+        } catch (err) {
+            // Check if the error is an instance of HTTP Errors
+            if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+                // Rethrow the original HTTP error
+                throw err;
+            }
+
+            // Log and throw an internal server error for other types of errors
+            console.error("Error during getVolunteersByBoothId process: ", err.message);
+            throw new global.DATA.PLUGINS.httperrors.InternalServerError("An internal server error occurred: ", err.message);
         }
     }
 }

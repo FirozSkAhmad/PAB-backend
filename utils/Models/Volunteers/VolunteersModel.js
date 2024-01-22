@@ -47,7 +47,7 @@ const VolunteersModel = global.DATA.CONNECTION.mysql.define("volunteers", {
     },
     emailId: {
         type: Sequelize.DataTypes.STRING(100),
-        allowNull: false,
+        allowNull: true,
         unique: true
     },
     gender: {

@@ -397,7 +397,7 @@ class UserService {
                     booth_id: pab.id,
                     volunteer_name: userdetails.volunteer_name,
                     phn_no: userdetails.phn_no,
-                    emailId: userdetails.emailId ? userdetails.emailId : "empty",
+                    emailId: userdetails.emailId ? userdetails.emailId : null,
                     gender: userdetails.gender,
                     age: userdetails.age,
                     caste: userdetails.caste,
@@ -407,6 +407,8 @@ class UserService {
                     file_name: files[0].originalname,
                     photo_url: uploadedFileURL,
                 };
+
+                console.log(Payload)
 
                 const newVolunteer = await volunteers.create(Payload, { transaction: t });
                 return newVolunteer;
@@ -639,7 +641,7 @@ class UserService {
                     booth_id: updatedBoothId,
                     volunteer_name: userdetails.volunteer_name,
                     phn_no: userdetails.phn_no,
-                    emailId: userdetails.emailId ? userdetails.emailId : "empty",
+                    emailId: userdetails.emailId ? userdetails.emailId : null,
                     gender: userdetails.gender,
                     age: userdetails.age,
                     caste: userdetails.caste,
