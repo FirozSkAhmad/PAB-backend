@@ -700,8 +700,8 @@ class UserService {
 
                 const designationChecks = {
                     "PRESIDENT": "president",
-                    "AGENT_1": "agent_1",
-                    "AGENT_2": "agent_2"
+                    "BLA1": "agent_1",
+                    "BLA2": "agent_2"
                 };
 
                 const designation = volunteer.designation;
