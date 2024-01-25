@@ -337,12 +337,12 @@ class AdminService {
         try {
 
             // Helper function to determine booth status
-            async function getBoothStatus(parliment, assembly, taluka) {
+            async function getBoothStatus(assembly, taluka, booth) {
                 const pabData = await pabs.findOne({
-                    where: { parliment, assembly, taluka },
+                    where: { assembly, taluka, booth },
                     attributes: ['no_volunteers']
                 });
-
+                console.log(pabData)
                 if (pabData) {
                     const noVolunteers = pabData.no_volunteers;
                     if (noVolunteers === 0) return 'RED';
@@ -373,7 +373,7 @@ class AdminService {
                 } : {};
 
                 // Get booth status
-                const boothStatus = await getBoothStatus(volunteerData.parliment, volunteerData.assembly, volunteerData.taluka);
+                const boothStatus = await getBoothStatus(volunteerData.assembly, volunteerData.taluka, volunteerData.booth);
 
                 // Remove the user object and add the renamed keys and booth status to the main object
                 delete volunteerData.user;
@@ -444,7 +444,7 @@ class AdminService {
             }
 
             // Helper function to fetch volunteers
-            async function fetchVolunteers(boothId, assembly, taluka, booth,noVolunteers) {
+            async function fetchVolunteers(boothId, assembly, taluka, booth, noVolunteers) {
                 const volunteerList = await volunteers.findAll({
                     where: {
                         booth_id: boothId,
