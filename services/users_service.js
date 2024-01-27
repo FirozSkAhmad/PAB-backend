@@ -97,7 +97,7 @@ class UserService {
                 throw new Error("Only .png, .jpg and .jpeg format allowed!");
             }
 
-            let uploadedFileURL = await uploadFile(files[0], "VolunteerImgs");
+            let uploadedFileURL = await uploadFile(files[0], "SurveyorImgs");
 
             // User Id not present
             const password = userdetails.password;
