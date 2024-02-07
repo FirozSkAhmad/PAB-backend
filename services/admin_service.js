@@ -94,7 +94,7 @@ class AdminService {
     }
 
 
-    async getAllSurveyorList() {
+    async getAllSurveyorNames() {
         try {
             const usersData = await users.findAll({
                 attributes: ['user_name'],
@@ -120,7 +120,129 @@ class AdminService {
         }
     }
 
+    async getAllSurveyorDetails() {
+        try {
+            const surveyorsData = await users.findAll({
+                where: {
+                    id: {
+                        [Op.ne]: 1 // 'ne' stands for 'not equal'
+                    }
+                },
+                attributes: [['id', 'surveyor_id'], ['user_name', 'surveyor_name'], 'password', 'emailId', 'phn_no', 'address', 'photo_url', 'role_type', 'createdAt', 'updatedAt'],
+                order: [['updatedAt', 'ASC']]  // Order by 'updatedAt' in ascending order
+            });
 
+            return surveyorsData;
+
+        } catch (err) {
+            // If it's a known error, rethrow it for the router to handle
+            if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+                throw err;
+            }
+            // Log and throw a generic server error for unknown errors
+            console.error("Error in getAllSurveyorList: ", err.message);
+            throw new global.DATA.PLUGINS.httperrors.InternalServerError("An internal server error occurred");
+        }
+    }
+
+    async surveyorUpdate(surveyor_id, surveyorDetails, files) {
+        return await global.DATA.CONNECTION.mysql.transaction(async (t) => {
+            try {
+                const surveyor = await users.findOne({
+                    where: { id: surveyor_id },
+                    transaction: t
+                });
+
+                if (!surveyor) {
+                    throw new global.DATA.PLUGINS.httperrors.BadRequest("Surveyor not found with the given ID.");
+                }
+
+                // Check for duplicate email or phone number, excluding the current surveyor
+                const checkInUsers = await users.findOne({
+                    where: {
+                        [Op.and]: [
+                            { [Op.or]: [{ emailId: surveyorDetails.emailId }, { phn_no: surveyorDetails.phn_no }] },
+                            { id: { [Op.not]: surveyor_id } }
+                        ]
+                    }
+                });
+
+                if (checkInUsers) {
+                    throw new global.DATA.PLUGINS.httperrors.BadRequest("Email ID or phone number is already in use by another user.");
+                }
+
+                let updatedUploadedFileURL = surveyor.photo_url;
+                if (files.length !== 0) {
+                    if (files[0].fieldname !== "profileImage") {
+                        throw new global.DATA.PLUGINS.httperrors.BadRequest(`${files[0].fieldname} should be named as 'profileImage'.`);
+                    }
+                    if (!["image/png", "image/jpg", "image/jpeg"].includes(files[0].mimetype)) {
+                        throw new global.DATA.PLUGINS.httperrors.BadRequest("Invalid file format. Only .png, .jpg, and .jpeg formats are allowed.");
+                    }
+
+                    // Upload the new file to S3
+                    updatedUploadedFileURL = await uploadFile(files[0], "SurveyorImgs");
+                }
+
+                const updatedObj = {
+                    emailId: surveyorDetails.emailId,
+                    user_name: surveyorDetails.surveyor_name,
+                    phn_no: surveyorDetails.phn_no,
+                    address: surveyorDetails.address,
+                    photo_url: updatedUploadedFileURL,
+                };
+
+                const updatedSurveyor = await users.update(updatedObj, {
+                    where: { id: surveyor_id },
+                    transaction: t
+                });
+
+                if (updatedSurveyor[0] === 0) {
+                    throw new Error("No changes made to the surveyor's details.");
+                }
+
+                return 'Surveyor updated successfully';
+            } catch (err) {
+                if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
+                    throw err;
+                }
+                console.error("Error during surveyor update process: ", err.message);
+                throw new global.DATA.PLUGINS.httperrors.InternalServerError("An internal server error occurred.");
+            }
+        });
+    }
+
+
+    async deleteSurveyor(surveyor_id) {
+        return await global.DATA.CONNECTION.mysql.transaction(async (t) => {
+            try {
+                const surveyor = await users.findOne({
+                    where: { id: surveyor_id },
+                    transaction: t
+                });
+
+                if (!surveyor) {
+                    throw new global.DATA.PLUGINS.httperrors.BadRequest("NO VOLUNTEER EXISTS WITH GIVEN id");
+                }
+
+                await volunteers.update({ surveyor_id: 1 }, {
+                    where: { surveyor_id: surveyor_id }
+                });
+
+                // Delete the volunteer record
+                await users.destroy({
+                    where: { id: surveyor_id },
+                    transaction: t
+                });
+
+                return 'Surveyor deleted successfully';
+
+            } catch (err) {
+                console.error("Error during volunteer deleting process", err.message);
+                throw new global.DATA.PLUGINS.httperrors.InternalServerError(err.message || Constants.SQL_ERROR);
+            }
+        });
+    }
 
     async validateUser(userDetails) {
         try {
@@ -342,7 +464,7 @@ class AdminService {
                     where: { assembly, taluka, booth },
                     attributes: ['no_volunteers']
                 });
-                console.log(pabData)
+
                 if (pabData) {
                     const noVolunteers = pabData.no_volunteers;
                     if (noVolunteers === 0) return 'RED';
@@ -395,7 +517,7 @@ class AdminService {
     async getVolunteersByBoothId(boothId) {
         try {
 
-            // // Helper function to get volunteer details
+            // Helper function to get volunteer details
             async function getVolunteerDetails(boothId, designation, assembly, taluka, booth, noVolunteers) {
                 const volunteerData = await volunteers.findOne({
                     where: {
@@ -489,14 +611,14 @@ class AdminService {
             const pabRow = await pabs.findByPk(boothId);
 
             if (!pabRow) {
-                return res.status(404).send('Booth not found');
+                throw new global.DATA.PLUGINS.httperrors.BadRequest('Booth not found');
             }
 
             // Calculating volunteers_count
-            let volunteers_count = pabRow.total_volunteers;
-            if (pabRow.president !== 'NOT FILLED') volunteers_count--;
-            if (pabRow.agent_1 !== 'NOT FILLED') volunteers_count--;
-            if (pabRow.agent_2 !== 'NOT FILLED') volunteers_count--;
+            // let volunteers_count = pabRow.total_volunteers;
+            // if (pabRow.president !== 'NOT FILLED') volunteers_count--;
+            // if (pabRow.agent_1 !== 'NOT FILLED') volunteers_count--;
+            // if (pabRow.agent_2 !== 'NOT FILLED') volunteers_count--;
 
             const output = {
                 PRESIDENT: await getVolunteerDetails(boothId, 'PRESIDENT', pabRow.assembly, pabRow.taluka, pabRow.booth, pabRow.no_volunteers),

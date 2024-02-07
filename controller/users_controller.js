@@ -46,9 +46,7 @@ router.post('/register', multer().any(), async (req, res, next) => {
 
 router.get('/getATS', jwtHelperObj.verifyAccessToken, async (req, res, next) => {
     try {
-        if (req.aud.split(":")[1] === "SURVEYOR") {
-
-            const surveyorId = req.query.surveyor_id;
+        if (req.aud.split(":")[1] === "SURVEYOR" || req.aud.split(":")[1] === "SUPER ADMIN") {
 
             const adminServiceObj = new UserService();
             const data = await adminServiceObj.getATS();
@@ -61,7 +59,7 @@ router.get('/getATS', jwtHelperObj.verifyAccessToken, async (req, res, next) => 
         } else {
             res.send({
                 "status": 401,
-                "message": "only SURVEYOR has access to getATS",
+                "message": "only SURVEYOR or SUPER ADMIN has access to getATS",
             })
         }
 
@@ -78,7 +76,7 @@ router.get('/getATS', jwtHelperObj.verifyAccessToken, async (req, res, next) => 
 router.get('/getBoothsByAT', jwtHelperObj.verifyAccessToken, async (req, res, next) => {
     try {
 
-        if (req.aud.split(":")[1] === "SURVEYOR") {
+        if (req.aud.split(":")[1] === "SURVEYOR" || req.aud.split(":")[1] === "SUPER ADMIN") {
 
             const assemblyName = req.query.assembly;
             const talukaName = req.query.taluka;
@@ -116,7 +114,7 @@ router.get('/getBoothsByAT', jwtHelperObj.verifyAccessToken, async (req, res, ne
 router.get('/getBoothDetailsByATB', jwtHelperObj.verifyAccessToken, async (req, res, next) => {
     try {
 
-        if (req.aud.split(":")[1] === "SURVEYOR") {
+        if (req.aud.split(":")[1] === "SURVEYOR" || req.aud.split(":")[1] === "SUPER ADMIN") {
 
             const { assembly, taluka, booth } = req.query;
 
@@ -151,7 +149,7 @@ router.get('/getBoothDetailsByATB', jwtHelperObj.verifyAccessToken, async (req, 
 
 router.post('/volunteerOnboard', jwtHelperObj.verifyAccessToken, multer().any(), async (req, res, next) => {
     try {
-        if (req.aud.split(":")[1] === "SURVEYOR") {
+        if (req.aud.split(":")[1] === "SURVEYOR" || req.aud.split(":")[1] === "SUPER ADMIN") {
             const userSeviceObj = new UserService();
             const data = await userSeviceObj.volunteerOnboard(req.body, req.files);
             res.send({
@@ -195,7 +193,6 @@ router.get('/getVolunteersDataBySurveyorId', jwtHelperObj.verifyAccessToken, asy
                 "message": "only SURVEYOR has access to getVolunteersDataBySurveyorId",
             })
         }
-
     } catch (err) {
         // Check if the error is an instance of HTTP Errors
         if (err instanceof global.DATA.PLUGINS.httperrors.HttpError) {
@@ -206,10 +203,10 @@ router.get('/getVolunteersDataBySurveyorId', jwtHelperObj.verifyAccessToken, asy
     }
 })
 
-router.put('/volunteerUpdate/:id', jwtHelperObj.verifyAccessToken, multer().any(), async (req, res, next) => {
+router.put('/volunteerUpdate/:volunteer_id', jwtHelperObj.verifyAccessToken, multer().any(), async (req, res, next) => {
     try {
-        if (req.aud.split(":")[1] === "SURVEYOR") {
-            const volunteerId = req.params.id;
+        if (req.aud.split(":")[1] === "SURVEYOR" || req.aud.split(":")[1] === "SUPER ADMIN") {
+            const volunteerId = req.params.volunteer_id;
             const userSeviceObj = new UserService();
             const data = await userSeviceObj.volunteerUpdate(volunteerId, req.body, req.files);
             res.send({
@@ -220,7 +217,7 @@ router.put('/volunteerUpdate/:id', jwtHelperObj.verifyAccessToken, multer().any(
         } else {
             res.send({
                 "status": 401,
-                "message": "only SURVEYOR has access to Edit volunteer",
+                "message": "only SURVEYOR or SUPER ADMIN has access to Edit volunteer",
             })
         }
     } catch (err) {
@@ -233,10 +230,10 @@ router.put('/volunteerUpdate/:id', jwtHelperObj.verifyAccessToken, multer().any(
     }
 })
 
-router.delete('/deleteVolunteer/:id', jwtHelperObj.verifyAccessToken, multer().any(), async (req, res, next) => {
+router.delete('/deleteVolunteer/:volunteer_id', jwtHelperObj.verifyAccessToken, multer().any(), async (req, res, next) => {
     try {
-        if (req.aud.split(":")[1] === "SURVEYOR") {
-            const volunteerId = req.params.id;
+        if (req.aud.split(":")[1] === "SURVEYOR" || req.aud.split(":")[1] === "SUPER ADMIN") {
+            const volunteerId = req.params.volunteer_id;
             const userSeviceObj = new UserService();
             const data = await userSeviceObj.deleteVolunteer(volunteerId);
             res.send({
@@ -247,7 +244,7 @@ router.delete('/deleteVolunteer/:id', jwtHelperObj.verifyAccessToken, multer().a
         } else {
             res.send({
                 "status": 401,
-                "message": "only SURVEYOR has access to Edit volunteer",
+                "message": "only SURVEYOR or SUPER ADMIN has access to delete volunteer",
             })
         }
     } catch (err) {

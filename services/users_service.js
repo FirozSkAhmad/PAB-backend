@@ -271,21 +271,141 @@ class UserService {
                 ]
             });
 
+            if (!detail) {
+                throw new global.DATA.PLUGINS.httperrors.BadRequest("NO BOOTH EXISTS WITH THE GIVEN ASSEMBLY, TALUKA, BOOTH COMBINATION");
+            }
+
             const details = detail.get({ plain: true });
 
             // Calculating volunteers_count
-            let volunteers_count = details.total_volunteers;
-            console.log(volunteers_count)
-            if (details.PRESIDENT !== 'NOT FILLED') volunteers_count--;
-            if (details.BLA1 !== 'NOT FILLED') volunteers_count--;
-            if (details.BLA2 !== 'NOT FILLED') volunteers_count--;
+            // let volunteers_count = details.total_volunteers;
+            // if (details.PRESIDENT !== 'NOT FILLED') volunteers_count--;
+            // if (details.BLA1 !== 'NOT FILLED') volunteers_count--;
+            // if (details.BLA2 !== 'NOT FILLED') volunteers_count--;
 
             // Adding volunteers_count to the response
-            return {
-                assembly, taluka, booth,
-                ...details, // Spread operator to include all other details
-                volunteers_count
+            // return {
+            //     assembly, taluka, booth,
+            //     ...details, // Spread operator to include all other details
+            //     volunteers_count
+            // }
+
+            const boothId = details.booth_id
+
+            // Helper function to get volunteer details
+            async function getVolunteerDetails(boothId, designation, assembly, taluka, booth, noVolunteers) {
+                const volunteerData = await volunteers.findOne({
+                    where: {
+                        booth_id: boothId,
+                        designation: designation
+                    },
+                    include: [{
+                        model: users, // Ensure 'users' is correctly associated with 'volunteers'
+                        attributes: ['user_name'] // Fetch only 'user_name' from 'users'
+                    }],
+                });
+
+                if (!volunteerData) {
+                    return 'NOT FILLED';
+                }
+
+                // Process the results to format as per requirements
+                const volunteer = volunteerData.get({ plain: true });
+
+                // Extract user data and rename keys
+                const userData = volunteer.user ? {
+                    surveyor_name: volunteer.user.user_name
+                } : {};
+
+                // Remove the user object and add the renamed keys and pabRow data to the main object
+                delete volunteer.user;
+
+                const output = {
+                    ...volunteer,
+                    ...userData,
+                    assembly,
+                    taluka,
+                    booth
+                };
+
+                if (noVolunteers === 0) {
+                    output.booth_status = 'RED';
+                } else if (noVolunteers >= 1 && noVolunteers <= 7) {
+                    output.booth_status = 'YELLOW';
+                } else {
+                    output.booth_status = 'GREEN';
+                }
+
+                return output;
             }
+
+            // Helper function to fetch volunteers
+            async function fetchVolunteers(boothId, assembly, taluka, booth, noVolunteers) {
+                const volunteerList = await volunteers.findAll({
+                    where: {
+                        booth_id: boothId,
+                        designation: 'VOLUNTEER'
+                    },
+                    include: [{
+                        model: users,
+                        attributes: ['user_name']
+                    }],
+                });
+
+                return volunteerList.map(volunteerData => {
+                    const volunteer = volunteerData.get({ plain: true });
+                    const userData = volunteer.user ? {
+                        surveyor_name: volunteer.user.user_name
+                    } : {};
+
+                    delete volunteer.user;
+
+                    const output = {
+                        ...volunteer,
+                        ...userData,
+                        assembly,
+                        taluka,
+                        booth
+                    };
+
+                    if (noVolunteers === 0) {
+                        output.booth_status = 'RED';
+                    } else if (noVolunteers >= 1 && noVolunteers <= 7) {
+                        output.booth_status = 'YELLOW';
+                    } else {
+                        output.booth_status = 'GREEN';
+                    }
+
+                    return output;
+
+                });
+            }
+
+            const pabRow = await pabs.findByPk(boothId);
+
+            if (!pabRow) {
+                throw new global.DATA.PLUGINS.httperrors.BadRequest('Booth not found');
+            }
+
+            // Calculating volunteers_count
+            // let volunteers_count = pabRow.total_volunteers;
+            // if (pabRow.president !== 'NOT FILLED') volunteers_count--;
+            // if (pabRow.agent_1 !== 'NOT FILLED') volunteers_count--;
+            // if (pabRow.agent_2 !== 'NOT FILLED') volunteers_count--;
+
+            const output = {
+                address:details.address,
+                PRESIDENT: await getVolunteerDetails(boothId, 'PRESIDENT', pabRow.assembly, pabRow.taluka, pabRow.booth, pabRow.no_volunteers),
+                BLA1: await getVolunteerDetails(boothId, 'BLA1', pabRow.assembly, pabRow.taluka, pabRow.booth, pabRow.no_volunteers),
+                BLA2: await getVolunteerDetails(boothId, 'BLA2', pabRow.assembly, pabRow.taluka, pabRow.booth, pabRow.no_volunteers)
+            };
+
+            // Add volunteers if volunteers_count is more than 0
+            if (pabRow.no_volunteers > 0) {
+                output.volunteers = await fetchVolunteers(boothId, pabRow.assembly, pabRow.taluka, pabRow.booth, pabRow.no_volunteers);
+            }
+
+            return output;
 
         } catch (err) {
             // Check if the error is an instance of HTTP Errors
@@ -307,7 +427,6 @@ class UserService {
                 const surveyor = await users.findOne({
                     where: {
                         id: userdetails.surveyor_id,
-                        role_type: "SURVEYOR"
                     }
                 });
 
@@ -407,8 +526,6 @@ class UserService {
                     file_name: files[0].originalname,
                     photo_url: uploadedFileURL,
                 };
-
-                console.log(Payload)
 
                 const newVolunteer = await volunteers.create(Payload, { transaction: t });
                 return newVolunteer;
@@ -594,44 +711,47 @@ class UserService {
                     const designation = userdetails.designation;
 
                     if (designation !== volunteer.designation) {
-                        if (designation in designationChecks) {
-                            const key = designationChecks[designation];
-                            if (pab[key] === "FILLED") {
-                                throw new global.DATA.PLUGINS.httperrors.BadRequest(`THERE IS ALREADY A ${designation} IN THIS BOOTH`);
-                            } else {
-                                await pabs.update(
-                                    { [designationChecks[volunteer.designation]]: "NOT FILLED", [key]: "FILLED" },
-                                    { where: { id: pab.id }, transaction: t }
-                                );
-                            }
+                        // if (designation in designationChecks) {
+                        const key = designationChecks[designation];
+                        if (pab[key] === "FILLED") {
+                            throw new global.DATA.PLUGINS.httperrors.BadRequest(`THERE IS ALREADY A ${designation} IN THIS BOOTH`);
+                        } else {
+                            await pabs.update(
+                                { [designationChecks[volunteer.designation]]: "NOT FILLED", [key]: "FILLED" },
+                                { where: { id: pab.id }, transaction: t }
+                            );
                         }
+                        // }
                     }
 
                 }
 
-                if (files.length === 0 || files[0].fieldname !== "profileImage") {
-                    throw new Error("required profileImage as key and file as value");
+                let updatedUploadedFileURL;
+                let updatedFileName;
+                if (files.length !== 0) {
+                    if (files[0].fieldname !== "profileImage") {
+                        throw new global.DATA.PLUGINS.httperrors.BadRequest(`Field should be named as 'profileImage', but received '${files[0].fieldname}'.`);
+                    }
+                    if (!["image/png", "image/jpg", "image/jpeg"].includes(files[0].mimetype)) {
+                        throw new global.DATA.PLUGINS.httperrors.BadRequest("Invalid file format. Only .png, .jpg, and .jpeg formats are allowed.");
+                    }
+
+                    if (files[0].originalname && files[0].originalname !== volunteer.file_name) {
+                        try {
+                            await deleteFile(volunteer.file_name, "VolunteerImgs"); // replace "YourBucketName" with the correct one
+                            updatedUploadedFileURL = await uploadFile(files[0], "VolunteerImgs"); // replace "YourBucketName" with the correct one
+                            updatedFileName = files[0].originalname;
+                        } catch (err) {
+                            // Handle file operation errors
+                            console.error("Error during file operation: ", err.message);
+                            throw new global.DATA.PLUGINS.httperrors.InternalServerError("Error occurred during file update, in volunteerUpdate process");
+                        }
+                    }
+                } else {
+                    updatedUploadedFileURL = volunteer.photo_url;
+                    updatedFileName = volunteer.file_name;
                 }
 
-                if (!["image/png", "image/jpg", "image/jpeg"].includes(files[0].mimetype)) {
-                    throw new Error("Only .png, .jpg and .jpeg format allowed!");
-                }
-
-                let updatedUploadedFileURL
-                let updatedFileName
-                if (files[0].originalname !== volunteer.file_name) {
-                    // Delete the previous file from S3
-                    await deleteFile(volunteer.file_name, "VolunteerImgs");
-
-                    // Upload the new file to S3
-                    updatedUploadedFileURL = await uploadFile(files[0], "VolunteerImgs");
-
-                    updatedFileName = files[0].originalname
-                }
-                else {
-                    updatedUploadedFileURL = volunteer.photo_url
-                    updatedFileName = volunteer.file_name
-                }
 
                 const updatedObj = {
                     assembly: userdetails.assembly,
@@ -670,7 +790,7 @@ class UserService {
                 }
 
                 // Log and throw an internal server error for other types of errors
-                console.error("Error during olunteer updating process: ", err.message);
+                console.error("Error during Volunteer updating process: ", err.message);
                 throw new global.DATA.PLUGINS.httperrors.InternalServerError("An internal server error occurred: ", err.message);
             }
         });
