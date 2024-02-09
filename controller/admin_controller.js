@@ -19,6 +19,20 @@ router.get('/convert-image-to-base64', (req, res) => {
         });
     }
 
+    // Function to extract the file extension from the URL
+    function getFileExtension(imageUrl) {
+        // Find the last dot in the URL
+        const lastDotIndex = imageUrl.lastIndexOf('.');
+
+        // Slice everything after the last dot to get the extension
+        const extension = imageUrl.slice(lastDotIndex + 1);
+
+        return extension;
+    }
+
+    // Get the file extension
+    const fileExtension = getFileExtension(imageUrl);
+
     https.get(imageUrl, (response) => {
         // Array to hold the chunks of data as they are being received
         const chunks = [];
@@ -32,7 +46,7 @@ router.get('/convert-image-to-base64', (req, res) => {
             const base64Image = buffer.toString('base64');
             res.status(200).json({
                 status: 'success',
-                base64Image: `data:image/jpeg;base64,${base64Image}`,
+                base64Image: `data:image/${fileExtension};base64,${base64Image}`,
             });
         });
     }).on('error', (e) => {
