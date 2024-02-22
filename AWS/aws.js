@@ -13,7 +13,7 @@ let uploadFile = async (file, folderName) => {
   return new Promise(function (resolve, reject) {
     let s3 = new aws.S3({ apiVersion: '2006-03-01' });
 
-    const compressAndUpload = (buffer) => {
+    const uploadImg = (buffer) => {
       var uploadParams = {
         ACL: 'public-read',
         Bucket: 'pab-volunteer-imgs',
@@ -31,30 +31,31 @@ let uploadFile = async (file, folderName) => {
     };
 
     // Compress the image if it's larger than 1 MB
-    if (Buffer.byteLength(file.buffer) > 1 * 1024 * 1024) {
-      sharp(file.buffer)
-        .resize(1080) // Resize the image to be 1080px in width
-        .jpeg({ quality: 50 }) // Reduce quality to decrease file size
-        .toBuffer()
-        .then(compressedBuffer => {
-          // Check if compression achieved the desired size
-          if (Buffer.byteLength(compressedBuffer) <= 1 * 1024 * 1024) {
-            compressAndUpload(compressedBuffer);
-          } else {
-            // Further reduce size if the file is still larger than 1 MB
-            sharp(compressedBuffer)
-              .resize(800) // Further reduce the dimensions
-              .jpeg({ quality: 40 }) // Further reduce the quality
-              .toBuffer()
-              .then(furtherCompressedBuffer => compressAndUpload(furtherCompressedBuffer))
-              .catch(err => reject({ error: err.message }));
-          }
-        })
-        .catch(err => reject({ error: err.message }));
-    } else {
-      // Upload the file as is if it's less than 1 MB
-      compressAndUpload(file.buffer);
-    }
+    // if (Buffer.byteLength(file.buffer) > 1 * 1024 * 1024) {
+    //   sharp(file.buffer)
+    //     .resize(1080) // Resize the image to be 1080px in width
+    //     .jpeg({ quality: 50 }) // Reduce quality to decrease file size
+    //     .toBuffer()
+    //     .then(compressedBuffer => {
+    //       // Check if compression achieved the desired size
+    //       if (Buffer.byteLength(compressedBuffer) <= 1 * 1024 * 1024) {
+    //         uploadImg(compressedBuffer);
+    //       } else {
+    //         // Further reduce size if the file is still larger than 1 MB
+    //         sharp(compressedBuffer)
+    //           .resize(800) // Further reduce the dimensions
+    //           .jpeg({ quality: 40 }) // Further reduce the quality
+    //           .toBuffer()
+    //           .then(furtherCompressedBuffer => compressAndUpload(furtherCompressedBuffer))
+    //           .catch(err => reject({ error: err.message }));
+    //       }
+    //     })
+    //     .catch(err => reject({ error: err.message }));
+    // } else {
+    //   // Upload the file as is if it's less than 1 MB
+    //   uploadImg(file.buffer);
+    // }
+    uploadImg(file.buffer);
   });
 };
 
