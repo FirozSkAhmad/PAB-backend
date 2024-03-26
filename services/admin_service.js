@@ -320,7 +320,7 @@ class AdminService {
                 return "REJECTED"
             }
 
-            if (userDetails.status === 'V') {
+            if (userDetails.status === 'A') {
                 // Delete from the user status and add to the user table
                 await global.DATA.CONNECTION.mysql.transaction(async (t) => {
 
